@@ -22,3 +22,47 @@ As shown in the reference architecture,
 The training data loaded in snowflake are collected from 230k patients across various regions and hospitals. There are total 19 features available in the data.
 The simulation data is available for 71K patients for prediction purpose.
 
+-------
+## Steps in the retraining pipeline 
+1. Create the Data drift detector object using the training data and save the detector as a pickle file for use for retraining.
+2. Create a schedule which runs periodically to check a data drift from the data in the logging table created during the scoring process and to raise a trigger if there's a drift.
+3. If the retrain trigger is activated, retrieve all data from the logging table up to the when periodic time window begins and retrain the model on new data, then save the retrained model on a seperate folder called " Retrain Artifacts".
+5. Old trained model and newly retrained model should be tested  on the remaining data in the logging table, which is only within the priodic time window (testing data) to evalaute the model performance by comparing their performance metrics.
+6. Once the final model is selected, the other model should be pushed to "Archives" folder and the selcted model should be in the currect directory along with its features and mappings.
+
+### 1. Buiding Data Drift Detector 
+
+Alibi python library is used  to build the data drift detector due to its simplicity and versality in  data detection. 
+- It uses the **TabularDrift** method which performs **feature-wise test** to comapre the statistical properties of the features in the reference dataset(trainng dataset) against the new dataset to identify a data drift. The **feature-wise- test** uses **Chi-square** test for categorical features and **two sample Kolmogorov- Sirmonov** test for continuous numerical data.
+- To reduce the complexity and improve the computational efficiency ,each categorical features and their categories are converted to numeric values before passing the features to the data drift detector.(Knowing the categorical data allows detector to seperately identify categorical and numerical data to apply appropriate statistial test)
+
+```python
+import alibi
+from alibi_detect.cd import TabularDrift
+# A list containing  categorical columns' indices derrived from the X_train dataframe and a dictionary with None values passed for each index are created to allow detector to infer the numerical values from the reference data.
+catgeories_per_feature= { f: None for f in cat_indices}
+# Initialize the data drift detector
+cd=TabularDrift(x_train.values,p_val=0.05, categories_per_feature=categories_per_feature)
+# saving the data detector as a pickle file
+with open ("Trained_Drift_Detector.pkl", "wb") as F:
+      pickle.dump(cd,F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
