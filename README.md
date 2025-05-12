@@ -24,7 +24,7 @@ The simulation data is available for 71K patients for prediction purpose.
 
 -------
 ## Steps in the retraining pipeline 
-1. Create the Data drift detector object using the training data and save the detector as a pickle file for use for retraining.
+1. Create the Data drift detector object using the training data and save the detector as a pickle file for use during retraining.
 2. Create a schedule which runs periodically to check a data drift from the data in the logging table created during the scoring process and to raise a trigger if there's a drift.
 3. If the retrain trigger is activated, retrieve all data from the logging table up to the when periodic time window begins and retrain the model on new data, then save the retrained model on a seperate folder called " Retrain Artifacts".
 5. Old trained model and newly retrained model should be tested  on the remaining data in the logging table, which is only within the priodic time window (testing data) to evalaute the model performance by comparing their performance metrics.
@@ -47,8 +47,19 @@ cd=TabularDrift(x_train.values,p_val=0.05, categories_per_feature=categories_per
 with open ("Trained_Drift_Detector.pkl", "wb") as F:
       pickle.dump(cd,F)
 ```
+### 2. schedule a periodic data drift detection during scoring 
+Due to the large volume of data, detection is performed in batches periodically, collecting data within a specified time window.
 
-
+- **data_monitoring_batch_query(a)** function is created to query the real time data from the logging table periodically. It use the "ADMISSION_DATE" column to specify the time window.
+  ```python
+  def data_monitoring_batch_query(a):
+  from sqlalchemy import text
+      query= f''' SELECT ..., ....,....                # select all column names from logging table
+                  FROM HEALTHDB.HEALTH_SCHEMA.LOGGING_TABLE
+                  WHERE ADMISSION_DATE >= CURRENT_DATE +N -(a*7) AND ADMISSION_DATE < CURRENT_DATE +N - {(a+1)*7}'''
+       # N= difference of days from current date to the begining of data, a= batch id
+       return text(query)
+  ```
 
 
 
