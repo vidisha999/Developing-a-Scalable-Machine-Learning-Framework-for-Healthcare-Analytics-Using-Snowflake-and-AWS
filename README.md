@@ -26,7 +26,8 @@ The simulation data is available for 71K patients for prediction purpose.
 ## Steps in the retraining pipeline 
 1. Create the Data drift detector object using the training data and save the detector as a pickle file for use during retraining.
 2. Create a schedule which runs periodically to check a data drift from the data in the logging table created during the scoring process and to raise a trigger if there's a drift.
-3. If the retrain trigger is activated, retrieve all data from the logging table up to the when periodic time window begins and retrain the model on new data, then save the retrained model on a seperate folder called " Retrain Artifacts".
+3. Build a model drift detector, and a model monitoring function that uses "LOS" and "predicted_LOS" columns from logging table data queried in batches to calculate the current performance metric and compare it against the  reference performance metrics calculated during initial training to detect a drift.
+4. If the retrain trigger is activated, retrieve all data from the logging table up to the when periodic time window begins and retrain the model on new data, then save the retrained model on a seperate folder called " Retrain Artifacts".
 5. Old trained model and newly retrained model should be tested  on the remaining data in the logging table, which is only within the priodic time window (testing data) to evalaute the model performance by comparing their performance metrics.
 6. Once the final model is selected, the other model should be pushed to "Archives" folder and the selcted model should be in the currect directory along with its features and mappings.
 
@@ -48,30 +49,135 @@ with open ("Trained_Drift_Detector.pkl", "wb") as F:
       pickle.dump(cd,F)
 ```
 ### 2. schedule a periodic data drift detection during scoring 
-Due to the large volume of data, detection is performed in batches periodically, collecting data within a specified time window.
+Due to the large volume of data, detection is performed in batches of 7 days periodically, collecting data within a specified time window.
 
-- **data_monitoring_batch_query(a)** function is created to query the real time data from the logging table periodically. It use the "ADMISSION_DATE" column to specify the time window.
+- **data_monitoring_batch_query(a)** function is created to query the real time data from the logging table periodically. It use the "ADMISSION_DATE" column to specify the time window. This function only querys necessary feature columns and eliminates target variable 'LOS' or 'PREDICTED_LOS' during the quering process.
   ```python
   def data_monitoring_batch_query(a):
   from sqlalchemy import text
-      query= f''' SELECT ..., ....,....                # select all column names from logging table
+      query= f''' SELECT ..., ....,....                # select all necessary column names from logging table
                   FROM HEALTHDB.HEALTH_SCHEMA.LOGGING_TABLE
                   WHERE ADMISSION_DATE >= CURRENT_DATE +N -(a*7) AND ADMISSION_DATE < CURRENT_DATE +N - {(a+1)*7}'''
        # N= difference of days from current date to the begining of data, a= batch id
        return text(query)
   ```
 
+- **data_monitoring(batch_id)** functions is created to load the training data until the specified time window, prepare the final data frame which is ready to check the data drift, by applying the trained data drift detector.
 
+```python
+def data_monitoring(batch_id):
+    with engine.connect() as conn:
+         batch_df=pd.DataFrame(pd.read_sql(data_monitoring_batch_query(batch_id),conn)) #query the data from SQL using snowflake-python connector 
 
+   batch_df.columns=[col.upper() for col in batch_df.columns.tolist()] # preprocess column names for consistency
+   cat_cols=[..,...,...]
+   num_cols= [..,...,...]# define categorical columns and numerical columns from the df
+   batch_final=batch_df[cat_cols+num_cols] # prepare the final dataframe ready for data drift detection
 
+   with open(" Trained_Drift_Detector",'rb') as F:     # load the trained detector saved as a pkl file
+       trained_drift_detector_model=pickle.load(F)
+  fpreds=trained_drift_detector.predict(batch_final.values, drift_type=feature) # detect the data drift on the new data feature wise
 
+  log_df=pd.DataFrame() # Add results of the fpreds to this dataframe
+  log_df['Time period']= ([str(batch_df['ADMISSION_DATE'].max()) + 'to' + str( batch_df['ADMISSION_DATE].min())]*   # define the time period batch is processed
+                                            len(batch_final.columns.tolist()])
+  log_df['Features'] = final_df.columns.tolist()
+  log-df['Is Drift'] = fpreds['data']['is_drift']
+  log_df['Stat test'] = log_df['Features'].apply( lambda x: 'chi2' if x in cat_cols else 'KS')
+  log_df['stat value'] = np.round(fpreds['data']['distance'])
+  log_df['p-value'] = np.round(fpreds['data']['p_val'])
 
+  return log_df
+```
+### 3. Build Model Drift detector
+    
+- Create **model_drift_check** function that detects drift in the model based on performance metrics of each model, based on the type of the predictive model
+  ```python
+  def check_model_drift(ref_metrics_dict,current_metrics_dict,type='classification', tol=0.1)
+      if type == 'classification'; # following performance metrics are used if a classification model
+          precision_change=abs((cur_metric_dict['Precision']-ref_metric_dict['Precision'])/ref_metric_dict['Precision'])
+          recall_change=...... # calculate recall change
+          roc_auc_change=..... # calculate roc_auc change
 
+          counter=0
+          for i in [precision_change, recall_change,roc_auc_change]:
+                if i > tol:
+                    conter +=1
+          if counter > 0:
+              print(" There is a model drift")
+              return 1
+          else:
+              print('There is no model drift')
+              return 0, precision_change, recall_change, roc_auc_change
+  
+      elif type =='regression':
+           rmse_change=abs((cur_metric_dict['RMSE']-ref_metric_dict['RMSE'])/ref_metric_dict['RMSE'])
+           mae_change=abs((cur_metric_dict['MAE']-ref_metric_dict['MAE'])/ref_metric_dict['MAE'])
+          
+          counter=0
+          for i in [rmse_change, mae_change]:
+                if i > tol:
+                    conter +=1
+          if counter > 0:
+              print(" There is a model drift")
+              return 1
+          else:
+              print('There is no model drift')
+              return 0, rmse_change, mae_change # return the changes in metrics if there is a model drift
+             
+       else:
+            print("There is no model drift.")
+            rmse_change = 'NONE'
+            mae_change = 'NONE'
+            return 0, rmse_change, mae_change
+  ```
+### 3. Schedule periodic model drift detection during scoring
 
+- Build **model_monitoring_batch_query(a)** function to query all data from the logging table in batches for the specified time window
+  ```python
+   def model_monitoring_batch_query(a):
+   from sqlalchemy import text
+         query_sim = f'''
+                     SELECT *   # select all columns from the logging table
+                     FROM HEALTHDB.HEALTH_SCHEMA.LOGGING_TABLE
+                     WHERE ADMISSION_DATE >= CURRENT_DATE-N+{a*7} AND ADMISSION_DATE < CURRENT_DATE-N+{(a+1)*7}
+        return text(query_sim)
+  ```
+- Build **model_monitoring(batch_id)** to periodically detect the model drift from the scoring data
+  ```python
+  def model_monitoring_batch(batch_id):
+        with engine.connect() as conn:
+            batch_df=pd.DataFrame(pd.read_sql(model_monitoring_batch_query(batch_id),conn)) #query the data from SQL using snowflake-python connector 
 
+       # create the current performance metrics using the scoring data
+       actual=batch_df['LOS_X']
+       predicted = batch_df['PREDICTED_LOS']
 
+       rmse = np.sqrt(metrics.mean_squared_error(actual,predicted))
+       mae= np.sqrt(metrics.mean_absolute_error(actual,predcited))
 
+       scoring_ref_metrics={}
+       scoring_ref_metrics['rmse']=rmse
+       scoring_ref_metrics['mae']=mae
 
+       # load reference performance metrics dictionary which was saved during initial training
+       
+        with open('MODEL_XGB_PERFM_METRICS.pkl', 'rb') as F:
+                model_ref_metrics=pickle.load(F)
+
+  
+      # detect the model drift and log (the treshold for performance metrics is 0.1 and model type is regression model).
+      model_drift, rmse_change,mae_change = check_model_drift(model_ref_metric,scoring_ref_metrics,type='regression',tol=0.1)
+    
+      # Log values
+    log = {}
+    log['Time Period'] = str(batch_df['ADMISSION_DATE'].min()) + ' to ' + str(batch_df['ADMISSION_DATE'].max())
+    log['Scoring Metrics'] = scoring_ref_metrics
+    log['Training Metrics'] = model_ref_metric
+    log['Model Drift IND'] = model_drift
+    log['RMSE Change'] = RMSE_CHANGE
+    log['MAE Change'] = MAE_CHANGE
+    ```
 
 
 
