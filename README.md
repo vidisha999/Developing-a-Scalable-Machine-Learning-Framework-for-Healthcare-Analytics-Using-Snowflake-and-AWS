@@ -48,7 +48,7 @@ cd=TabularDrift(x_train.values,p_val=0.05, categories_per_feature=categories_per
 with open ("Trained_Drift_Detector.pkl", "wb") as F:
       pickle.dump(cd,F)
 ```
-### 2. schedule a periodic data drift detection during scoring 
+### 2. Schedule a periodic data drift detection during scoring 
 Due to the large volume of data, detection is performed in batches of 7 days periodically, collecting data within a specified time window.
 
 - **data_monitoring_batch_query(a)** function is created to query the real time data from the logging table periodically. It use the "ADMISSION_DATE" column to specify the time window. This function only querys necessary feature columns and eliminates target variable 'LOS' or 'PREDICTED_LOS' during the quering process.
@@ -179,7 +179,7 @@ def data_monitoring(batch_id):
     log['MAE Change'] = MAE_CHANGE
    return log
     ```
-### 4. Retraining model 
+### 4. Retraining the model 
 - Create retraining helper functions to retrieve the latest data and perform feature engineering, feature selection, and data preprocessing using previously saved functions from the original model training.
 - Once new model is retrained, it is saved in a "Retrain Artifacts" folder along with all new features and model performance metrics in seperate pickle files.
 - **create retraining_batch_queryc(max-date)** function to query data for the retraining process which is union of original training data and new data saved in the logging table during scoring process. max_date is when the periodic time window begins in every batch.
@@ -347,10 +347,25 @@ def retrain_model(cutoff_date):
 
        return " Deployment Successfull"
   ```
-
+### 6. Retraining trigger condition
   
-  
+  The retraining trigger on the condition if any one of the model drift or data drift was occured. Then it executes the retraininig helper functions and model finalizatio function to automatically replace the selected the model as the current model. 
 
+
+ ```python
+if data_drift==True or model_drift==True:
+    # Do retraining
+    print('Retraining started...')
+    new_dict, old_dict = retrain_model(cutoff_date)
+
+    # finalize the model
+    print('Model selection started...')
+    select_model = finalize_model(new_perform_dict=new_dict, old_perform_dict=old_dict)
+
+   #Deploy the selected model
+    print('Model deployment started...')
+    deploy_model(select_model)
+```
 
 
 
