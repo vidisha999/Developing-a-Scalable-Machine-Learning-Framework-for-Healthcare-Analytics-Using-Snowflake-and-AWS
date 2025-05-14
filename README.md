@@ -24,6 +24,8 @@ The training data loaded in snowflake are collected from 230k patients across va
 The simulation data is available for 71K patients for prediction purpose.
 
 -------
+## Retraining pipeline
+![retraining pipeline](Images/retraining.png)
 ## Steps in the retraining pipeline 
 1. Create the Data drift detector object using the training data and save the detector as a pickle file for use during retraining.
 2. Create a schedule which runs periodically to check a data drift from the data in the logging table created during the scoring process and to raise a trigger if there's a drift.
