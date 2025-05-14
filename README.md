@@ -23,6 +23,7 @@ As shown in the reference architecture,
 The training data loaded in snowflake are collected from 230k patients across various regions and hospitals. There are total 19 features available in the data.
 The simulation data is available for 71K patients for prediction purpose.
 
+##
 -------
 ## Retraining pipeline
 ![retraining pipeline](Images/retraining.png)
