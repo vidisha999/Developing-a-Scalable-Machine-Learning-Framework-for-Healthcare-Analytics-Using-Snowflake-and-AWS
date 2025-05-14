@@ -303,13 +303,53 @@ def retrain_model(cutoff_date):
     
     return model_xgb_metrics_new, model_xgb_metrics_old
 ```
+### 5. Finalizing the model
+- By comparing the old model and new model, the best model is selected and the other one is moved to "Archive" folder to retain the information about the training history.
 
+  ``` python
+  def finalize_model(new_perform_dict,old_perform_dict):
+  count = 0
+      for metric in new_perform_dict.keys():
+              if  new_perform_dict[metric] < old_perform_dict[metric]:
+                      count +=1
+     if count > 0:
+        return "new model"
+     else:
+        return "old model"
+  ```
 
+  ```python
+  def deploy_model(select="old model"):
+       if select != "old model":
+            # STEP 1
+            #load the old model and associated features and metrics files
+             import xgboost as xgb
+             model=xgb.Booster()
+             old_model= model.load_model("MODEL_XGB.model")
+             ........... # load features and metrics files 
 
+            # Move the old model to Archive folder
+             with open('Archive/MODEL_XGB.model','wb') as F:
+                     pickle.dump(old_model,F)
+             ........... # save features and metrics files to Archive folder
+        else:
+            
+             #load the new model and associated features and metrics files
+             import xgboost as xgb
+             model=xgb.Booster()
+             new_model= model.load_model("Retraining Artifacts/MODEL_XGB.model")
+             ........... # load feature and metrics files 
 
+            # Replace the old model artifacts with new model 
+             with open('MODEL_XGB.model','rb') as F:
+                     pickle.dump(new_model,F)
+             ........... # Replace features and metrics files 
 
+       return " Deployment Successfull"
+  ```
 
-
+  
+  
 
 
 
