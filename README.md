@@ -208,12 +208,12 @@ def data_monitoring(batch_id):
 
        return text(query)
   ```
--**create retrain_model(cutoff_date)** function which retrains the model. The queried data is split into training and testing datasets based on the cut off date, by which the testing split would be data queried from the logging table within the duration of the time-window which is 7 days in this project.
- - This function applies the predefined functions **check_n_create_model_features(df,feat_list)** to format the features in the new dataframe according to the expected list of features/columns. 
--  Afterwards it applies the **feature_selection(df)** to apply the DecisionTreeRegressor and XGBRegressor to find the final list of model features and save it as a new pickle file under the 'Retrain Artifacts' folder.
--  The function returns the performance metrics dictionaries for the predictions made by both retrained model and old model on the  latest test dataset.
- 
-  ```python
+- **create retrain_model(cutoff_date)** function which retrains the model. The queried data is split into training and testing datasets based on the cut off date, by which the testing split would be data queried from the logging table within the duration of the time-window which is 7 days in this project.
+   - This function applies the predefined functions **check_n_create_model_features(df,feat_list)** to format the features in the new dataframe according to the expected list of features/columns. 
+  -  Afterwards it applies the **feature_selection(df)** to apply the DecisionTreeRegressor and XGBRegressor to find the final list of model features and save it as a new pickle file under the 'Retrain Artifacts' folder.
+  -  The function returns the performance metrics dictionaries for the predictions made by both retrained model and old model on the  latest test dataset.
+
+```python
 def retrain_model(cutoff_date):
       with engine.connect() as conn:
          data = pd.DataFrame(pd.read_sql(retraining_batch_query(cutoff_date),conn))
