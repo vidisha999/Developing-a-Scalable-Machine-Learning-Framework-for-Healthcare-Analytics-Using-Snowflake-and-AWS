@@ -184,6 +184,7 @@ def data_monitoring(batch_id):
 - Once new model is retrained, it is saved in a "Retrain Artifacts" folder along with all new features and model performance metrics in seperate pickle files.
 - **create retraining_batch_queryc(max-date)** function to query data for the retraining process which is union of original training data and new data saved in the logging table during scoring process. max_date is when the periodic time window begins in every batch.
 
+
   ```python
   def create_retraining_batch_query(max_date):
       query= f''' WITH TRAIN_BASE AS (
@@ -207,8 +208,12 @@ def data_monitoring(batch_id):
 
        return text(query)
   ```
--**create retrain_model(cutoff_date)** function that retrain the model. The queried data is split into training and testing datasets based on the cut off date, in which the testing split would be data queried from the logging table within the duration of the time-window which is 7 days in this project.
-```python
+-**create retrain_model(cutoff_date)** function which retrains the model. The queried data is split into training and testing datasets based on the cut off date, by which the testing split would be data queried from the logging table within the duration of the time-window which is 7 days in this project.
+ - This function applies the predefined functions **check_n_create_model_features(df,feat_list)** to format the features in the new dataframe according to the expected list of features/columns. 
+-  Afterwards it applies the **feature_selection(df)** to apply the DecisionTreeRegressor and XGBRegressor to find the final list of model features and save it as a new pickle file under the 'Retrain Artifacts' folder.
+-  The function returns the performance metrics dictionaries for the predictions made by both retrained model and old model on the  latest test dataset.
+ 
+  ```python
 def retrain_model(cutoff_date):
       with engine.connect() as conn:
          data = pd.DataFrame(pd.read_sql(retraining_batch_query(cutoff_date),conn))
@@ -233,31 +238,32 @@ def retrain_model(cutoff_date):
         
 
         # Performing feature selection using predefined function to find the final list of features for the model
-        # It saves the final model features from the retrain model in the "Retrain Artifacts" folder
+
         df_final = df_train_processed.copy()
         print("Feature Selection Started..")
         model_feats = feature_selection(df_final)
-        model_feats.remove('LOS')
+        model_feats.remove('LOS') # Selects X_train for model retraining 
 
 
         # Model Building
         import xgboost as xgb
-
         xgb_ = xgb.XGBRegressor()
-        xgb_.fit(df_final[model_feats],df_final['LOS'])
+        xgb_.fit(df_final[model_feats],df_final['LOS']) # Fit the model for X-train and y_train
 
-
+         # Use check_n_create_model_features function to create the final test df given the selected features
         df_test_final = check_n_create_model_features(df_test_processed,model_feats)
         if 'LOS' in df_test_final.columns.tolist():
-            df_test_final = df_test_final.drop('LOS',axis=1)
-        preds = np.ceil(xgb_.predict(df_test_final))
-        rmse = np.sqrt(metrics.mean_squared_error(df_test_processed['LOS'],preds))
+            df_test_final = df_test_final.drop('LOS',axis=1) # extract X-test dataset
+
+        # make predictions using the retrained model 
+        preds = np.ceil(xgb_.predict(df_test_final))  #df_test_final contains the x_test data
+        rmse = np.sqrt(metrics.mean_squared_error(df_test_processed['LOS'],preds)) # uses actual and predicted LOS values
         mae = np.sqrt(metrics.mean_absolute_error(df_test_processed['LOS'],preds))
         print("\n Test Performance (new model)")
         print("RMSE: ", rmse)
         print("MAE: ", mae)      
 
-        # Saving the trained model
+        # Saving the retrained model 
         booster = xgb_.get_booster()
         booster.save_model('Retraining Artifacts/MODEL_XGB.model')
 
@@ -265,23 +271,25 @@ def retrain_model(cutoff_date):
         model_xgb_metrics_new['RMSE'] = rmse
         model_xgb_metrics_new['MAE'] = mae
 
-        import pickle
-
-        with open('Retraining Artifacts/MODEL_XGB_PERFM_METRICS.pkl','wb') as F:
+        # saving the model metrics of the retrained model
+        import pickl
+        with open('Retraining Artifacts/MODEL_XGB_PERFM_METRICS.pkl','wb') as F:   
             pickle.dump(model_xgb_metrics_new,F)
 
 
+        
         # Getting the predictions from the old model
         model = xgboost.XGBRegressor()
         model.load_model('MODEL_XGB.model')
-    #     df_test_processed['PREDICTED_LOS'] = np.ceil(model.predict(df_test_processed[model_feats]))
-
+        
         with open('MODEL_FEATS.pkl','rb') as F:
             model_feats_old = pickle.load(F)
 
         df_test_final = check_n_create_model_features(df_test_processed,model_feats_old)
         if 'LOS' in df_test_final.columns.tolist():
             df_test_final = df_test_final.drop('LOS',axis=1)
+
+        # make predictions using the old model
         preds = np.ceil(model.predict(df_test_final))
         rmse = np.sqrt(metrics.mean_squared_error(df_test_processed['LOS'],preds))
         mae = np.sqrt(metrics.mean_absolute_error(df_test_processed['LOS'],preds))
@@ -294,6 +302,7 @@ def retrain_model(cutoff_date):
         model_xgb_metrics_old['MAE'] = mae
     
     return model_xgb_metrics_new, model_xgb_metrics_old
+```
 
 
 
