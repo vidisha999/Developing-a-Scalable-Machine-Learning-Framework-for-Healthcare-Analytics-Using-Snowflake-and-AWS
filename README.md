@@ -26,7 +26,7 @@ The simulation data is available for 71K patients for prediction purpose.
 ## Steps in the retraining pipeline 
 1. Create the Data drift detector object using the training data and save the detector as a pickle file for use during retraining.
 2. Create a schedule which runs periodically to check a data drift from the data in the logging table created during the scoring process and to raise a trigger if there's a drift.
-3. Build a model drift detector, and a model monitoring function that uses "LOS" and "predicted_LOS" columns from logging table data queried in batches to calculate the current performance metric and compare it against the  reference performance metrics calculated during initial training to detect a drift.
+3. Build a model drift detector, and a model monitoring function that uses "LOS" and "predicted_LOS" columns from logging table data queried in batches to calculate the current performance metrics and compare it against the  reference performance metrics calculated during initial training to detect a drift.
 4. If the retrain trigger is activated, retrieve all data from the logging table up to the when periodic time window begins and retrain the model on new data, then save the retrained model on a seperate folder called " Retrain Artifacts".
 5. Old trained model and newly retrained model should be tested  on the remaining data in the logging table, which is only within the priodic time window (testing data) to evalaute the model performance by comparing their performance metrics.
 6. Once the final model is selected, the other model should be pushed to "Archives" folder and the selcted model should be in the currect directory along with its features and mappings.
@@ -177,7 +177,207 @@ def data_monitoring(batch_id):
     log['Model Drift IND'] = model_drift
     log['RMSE Change'] = RMSE_CHANGE
     log['MAE Change'] = MAE_CHANGE
+   return log
     ```
+### 4. Retraining model 
+- Create retraining helper functions to retrieve the latest data and perform feature engineering, feature selection, and data preprocessing using previously saved functions from the original model training.
+- Once new model is retrained, it is saved in a "Retrain Artifacts" folder along with all new features and model performance metrics in seperate pickle files.
+- **create retraining_batch_queryc(max-date)** function to query data for the retraining process which is union of original training data and new data saved in the logging table during scoring process. max_date is when the periodic time window begins in every batch.
+
+  ```python
+  def create_retraining_batch_query(max_date):
+      query= f''' WITH TRAIN_BASE AS (
+                     SEELECT ...,....,...                   # select all columns after converting them to contain non-null values using COALASCE() method
+                     FROM HEALTHDB.HEALTH_SCHEMA.HEALTH_DATA
+                     WHERE ADMISSION_DATA >'2022-11-01'),     # reduce the data load
+  
+                  WITH TRAIN_BASE_WITH_FEATURES AS (
+                       SELECT *, .....,..... # does feature engineering to add new columns
+                       FROM TRAIN_BASE),
+                  WITH NEW_DATA_WITH_FEATURES AS(
+                        SELECT * , ...,....,   # select all other columns in the logging table except the " PREDICTED_LOS" column which is the taget variable
+                        FROM HEALTHDB.HEALTH_SCHEMA.LOGGING_TABLE
+                        WHERE ADMISSION_DATE > max_date)
+
+                 SELECT *
+                 FROM TRAIN_BASE_WITH_FEATURES
+                 UNION ALL
+                 SELECT *
+                 FROM NEW_DATA_WITH_FEATURES; '''
+
+       return text(query)
+  ```
+-**create retrain_model(cutoff_date)** function that retrain the model. The queried data is split into training and testing datasets based on the cut off date, in which the testing split would be data queried from the logging table within the duration of the time-window which is 7 days in this project.
+```python
+def retrain_model(cutoff_date):
+      with engine.connect() as conn:
+         data = pd.DataFrame(pd.read_sql(retraining_batch_query(cutoff_date),conn))
+         data.columns = [col.upper() for col in data.columns.tolist()]
+
+
+        # Splitting the data into Train and Test set
+        import pytz    
+        from datetime import datetime, timedelta
+        tz_NY = pytz.timezone('America/New_York')
+
+        max_date = data.ADMISSION_DATE.max()
+        min_date = max_date - timedelta(days=7) # periodically scheduled time window is 7 days
+
+        data_train = data[(data['ADMISSION_DATE'] <= min_date)]
+        data_test = data[(data['ADMISSION_DATE'] >= min_date) & (data['ADMISSION_DATE'] <= max_date)]
+
+
+        # Applying the preprocessing steps using LOS_Preprocessing script
+        df_train_processed = LOS_Preprocessing.preprocess_data(data_train)
+        df_test_processed = LOS_Preprocessing.preprocess_data(data_test)
+        
+
+        # Performing feature selection using predefined function to find the final list of features for the model
+        # It saves the final model features from the retrain model in the "Retrain Artifacts" folder
+        df_final = df_train_processed.copy()
+        print("Feature Selection Started..")
+        model_feats = feature_selection(df_final)
+        model_feats.remove('LOS')
+
+
+        # Model Building
+        import xgboost as xgb
+
+        xgb_ = xgb.XGBRegressor()
+        xgb_.fit(df_final[model_feats],df_final['LOS'])
+
+
+        df_test_final = check_n_create_model_features(df_test_processed,model_feats)
+        if 'LOS' in df_test_final.columns.tolist():
+            df_test_final = df_test_final.drop('LOS',axis=1)
+        preds = np.ceil(xgb_.predict(df_test_final))
+        rmse = np.sqrt(metrics.mean_squared_error(df_test_processed['LOS'],preds))
+        mae = np.sqrt(metrics.mean_absolute_error(df_test_processed['LOS'],preds))
+        print("\n Test Performance (new model)")
+        print("RMSE: ", rmse)
+        print("MAE: ", mae)      
+
+        # Saving the trained model
+        booster = xgb_.get_booster()
+        booster.save_model('Retraining Artifacts/MODEL_XGB.model')
+
+        model_xgb_metrics_new = {}
+        model_xgb_metrics_new['RMSE'] = rmse
+        model_xgb_metrics_new['MAE'] = mae
+
+        import pickle
+
+        with open('Retraining Artifacts/MODEL_XGB_PERFM_METRICS.pkl','wb') as F:
+            pickle.dump(model_xgb_metrics_new,F)
+
+
+        # Getting the predictions from the old model
+        model = xgboost.XGBRegressor()
+        model.load_model('MODEL_XGB.model')
+    #     df_test_processed['PREDICTED_LOS'] = np.ceil(model.predict(df_test_processed[model_feats]))
+
+        with open('MODEL_FEATS.pkl','rb') as F:
+            model_feats_old = pickle.load(F)
+
+        df_test_final = check_n_create_model_features(df_test_processed,model_feats_old)
+        if 'LOS' in df_test_final.columns.tolist():
+            df_test_final = df_test_final.drop('LOS',axis=1)
+        preds = np.ceil(model.predict(df_test_final))
+        rmse = np.sqrt(metrics.mean_squared_error(df_test_processed['LOS'],preds))
+        mae = np.sqrt(metrics.mean_absolute_error(df_test_processed['LOS'],preds))
+        print("\n Test Performance (old model)")
+        print("RMSE: ", rmse)
+        print("MAE: ", mae)   
+
+        model_xgb_metrics_old = {}
+        model_xgb_metrics_old['RMSE'] = rmse
+        model_xgb_metrics_old['MAE'] = mae
+    
+    return model_xgb_metrics_new, model_xgb_metrics_old
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
