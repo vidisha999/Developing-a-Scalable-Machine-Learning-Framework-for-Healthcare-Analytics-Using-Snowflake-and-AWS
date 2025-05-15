@@ -29,7 +29,35 @@ In order to store the datasts, a snowflake data table( **HEALTH_DB**) created in
  - There was no consistent trend observed between the LOS of patients with the available extra rooms in the hospital, however the highets average LOS of patients recorded as 60 days was for the highest number of available extra rooms  which is 20 in total.
  - Patients who were admitted due to Trauma or extreme severity ilness had the highest average LOS, while those admitted for minor severity illnesses or through emergency admissions had the lowest average LOS.
  - There was no significant variation in the average LOS across different age groups; however, the oldest patients recorded the highest average LOS at 37 days.
--------
+
+## Feature Engineering - Snowflake Database 
+Insights gained from the EDA, domain knowledge and data transformation techniques were applied to engineer new input variables, modify and transform existing variables and select the most releveant features to reduce the noise and improve the efficiency and performance of the model. In order to perform this, two Common Table Expressions(CTE)s were created; **BASE** CTE comprises all columns from the dataset, filtering out null values using the COALESCE() expression and **BASE_WITH_FEATURES** CTE builds upon **BASE**, incorporating engineered features derived from its selected columns.
+```python
+   WITH BASE AS (
+
+    SELECT CASE_ID,
+           COALESCE(HOSPITAL_CODE,0) AS HOSPITAL_CODE,
+           COALESCE(HOSPITAL_TYPE_CODE,'None') AS HOSPITAL_TYPE_CODE,
+           COALESCE((SEVERITY_OF_ILLNESS,'Minor') AS SEVERITY_OF_ILLNESS,
+           ............ # select rest of the column names from dataset
+
+   FROM HEALTHDB.HEALTHSCHEMA.HEALTH_DATA),
+
+  BASE_WITH_FEATURES AS (
+    SELECT *,
+            MONTHNAME(ADMISSION_DATE) AS ADMISSION_MONTH,
+            DAYNAME(ADMISSION_DATE) AS ADMISSION_DAY,
+            CONCAT(TYPE_OF_ADMISSION,'-',SEVERITY_OF_ILLNESS) AS ADMISSION_ILLNESS,
+            CONCAT(SEVERITY_OF_ILLNESS,'-',BED_GRADE) AS ILLNESS_BEDGRADE,
+            CONCAT(DEPARTMENT,'-',SEVERITY_OF_ILLNESS) AS DEPARTMENT_ILLNESS,
+            DATEDIFF(day,ADMISSION_DATE,DISCHARGE_DATE) AS LOS   # uses DATEDIFF() function to calculate the difference of days
+    FROM BASE )
+
+SELECT * FROM BASE_WITH_FEATURES;  
+```
+
+
+
 ## Retraining pipeline
 ![retraining pipeline](Images/retraining.png)
 ## Steps in the retraining pipeline 
