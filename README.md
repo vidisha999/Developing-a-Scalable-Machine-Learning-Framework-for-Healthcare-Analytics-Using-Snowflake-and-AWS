@@ -69,16 +69,38 @@ The preprocessing steps were conducted in a Python notebook instance within AWS 
         warehouse="COMPUTE_WH",
         database="HEALTHDB",
         schema="HEALTHSCHEMA"
-    )) ```
+    ))
+   ```
 
   - Create a snowflake-python connector to query data from Snowflake
     ```python
        with engine.connect() as conn:
           df=pd.DataFrame(pd.read_sql(text(query),conn))
+          df.columns=[col.upper() for col in df.columns.tolist()] # convert all column names to uppercase
     ```
-      
 
+The preprocessing steps were saved in **preprocess_data(df)** function within [LOS_Preprocessing](Python_notebook/LOS_Preprocessing.py) script to reuse the same steps during the scoring process and model retraining process.This minimizes data inconsistencies when querying incoming data, helping to maintain reliable and accurate model results. Following steps were performed in preprocessing. 
 
+- Dropping unwanted columns and reset the index
+  ```python
+  cols_to_drop=[['HOSPITAL_CODE','PATIENTID','ADMISSION_DATE','DISCHARGE_DATE'] #LOS is calculated,admission & discharge date are not needed
+  df = df.drop(cols_to_drop,axis=1)
+  df.set_index('CASE_ID',inplace=True)```
+
+- Fixing datatype issues to ensure numerical and categorical columns have correct datatype
+  ```python
+  num_cols=['AVAILABLE_EXTRA_ROOMS_IN_HOSPITAL','VISITORS_WITH_PATIENT','ADMISSION_DEPOSIT','LOS']
+  cat_cols=[col for col in df.columns.tolist() if col not in num_cols]
+  for col in cat_cols:
+      df[col]= df[col].astype(object)
+  for col in num_cols:
+      df[col]=df[col].astype(int)
+  ```
+
+ - One hot encode categorical variables, to have them in appropriate format for model building
+   ```python
+   df_final=pd.get_dummies(df)
+   ```
 
 
 
