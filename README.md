@@ -101,21 +101,37 @@ The preprocessing steps were saved in **preprocess_data(df)** function within [L
    ```python
    df_final=pd.get_dummies(df)
    ```
+ ## Feature Selection - AWS Sagemaker 
+To identify the most relevant features for the final model, feature importance was calculated using two supervised regression algorithms: DecisionTree and XGBoost (XGB). The preprocessed dataset was then divided into training and test sets, ensuring each predictive model, built using these algorithms, was evaluated effectively.
+```python
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeRegressor
+import xgboost as xgb
 
+# Build models using each algorithms and calculate R2
+  dtree=DecisionTreeRegressor()
+  dtree.fit(x_train,y_train)
+  dtree.score(x_train,y_train) 
 
+  xgb_=xgb.XGBRegressor()
+  xgb_.fit(x_train,y_train)
+  xgb_score(x_train,y_train) # The putput gives R2 value or coefficient of determination
 
+# Calculate feature importance on trainnig set using each predictive algorithm
 
+feat_imp_dtree=pd.DataFrame(zip(x_train.columns,dtree.feature_importances_),columns=['feature','importance']).sort_values(by='importance',ascending=False)
 
+feat_imp_xgb=pd.DataFrame(zip(x_train.columns,xgb.feature_importance_),columns=['feature','importance']).sort_values(by='importance',ascendng = False)
+```
+![dtree_feature_importance](Images/feature_eng1.png)
+        ***Image 1: Feature importances obtained using DecisionTreeRegressor***
+ ![xgb](Images/feature_eng2.png)
+         ***Image 2: Feature importances obtained using xgbRegressor***
 
+Since most features had small values for the feature impotance, a union of features from bothe models which had only an ipmortance above 0.01 was selected as the final list of features for the model building. The following features are selected as the final list;
 
-
-
-
-
-
-
-
-
+`{'ADMISSION_MONTH_Nov', 'ADMISSION_DAY_Tue', 'ADMISSION_DAY_Thu', 'ILLNESS_BEDGRADE_Extreme-1', 'AGE_41-50', 'ADMISSION_MONTH_Oct', 'ADMISSION_DAY_Wed', 'VISITORS_WITH_PATIENT', 'CITY_CODE_HOSPITAL_7', 'WARD_TYPE_P', 'AVAILABLE_EXTRA_ROOMS_IN_HOSPITAL','AGE_71-80' 'WARD_TYPE_Q','ADMISSION_DEPOSIT', 'AGE_31-40', 'BED_GRADE_2', 'TYPE_OF_ADMISSION_Trauma', 'CITY_CODE_PATIENT_8', 'ADMISSION_DAY_Mon', 'TYPE_OF_ADMISSION_Emergency','ADMISSION_DAY_Fri', 'CITY_CODE_HOSPITAL_2', 'ADMISSION_DAY_Sun', 'ADMISSION_DAY_Sat', 'WARD_TYPE_S',
+ 'SEVERITY_OF_ILLNESS_Minor'}`
 
 ## Retraining pipeline
 ![retraining pipeline](Images/retraining.png)
