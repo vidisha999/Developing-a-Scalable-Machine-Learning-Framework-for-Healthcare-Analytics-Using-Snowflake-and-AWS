@@ -128,10 +128,15 @@ feat_imp_xgb=pd.DataFrame(zip(x_train.columns,xgb.feature_importance_),columns=[
  ![xgb](Images/feature_eng2.png)
          ***Image 2: Feature importances obtained using xgbRegressor***
 
-Since most features had small values for the feature impotance, a union of features from bothe models which had only an ipmortance above 0.01 was selected as the final list of features for the model building. The following features are selected as the final list;
+Since most features had small values for the feature impotance, a union of features from both models that had an importance above 0.01 is selected as the final list of features for the model building and it is saved as a [pickle file](model_building_retraining_artifacts/MODEL_FEATS.pkl) for the future use during scoring and retraining processes. A dataframe containing the final list of features and target variable "LOS" is saved as a seperate [pickle file](model_building_retraining_artifacts/MODEL_training_data_with_final_features.pkl) for future use. The following features are selected as the final list;
 
 `{'ADMISSION_MONTH_Nov', 'ADMISSION_DAY_Tue', 'ADMISSION_DAY_Thu', 'ILLNESS_BEDGRADE_Extreme-1', 'AGE_41-50', 'ADMISSION_MONTH_Oct', 'ADMISSION_DAY_Wed', 'VISITORS_WITH_PATIENT', 'CITY_CODE_HOSPITAL_7', 'WARD_TYPE_P', 'AVAILABLE_EXTRA_ROOMS_IN_HOSPITAL','AGE_71-80' 'WARD_TYPE_Q','ADMISSION_DEPOSIT', 'AGE_31-40', 'BED_GRADE_2', 'TYPE_OF_ADMISSION_Trauma', 'CITY_CODE_PATIENT_8', 'ADMISSION_DAY_Mon', 'TYPE_OF_ADMISSION_Emergency','ADMISSION_DAY_Fri', 'CITY_CODE_HOSPITAL_2', 'ADMISSION_DAY_Sun', 'ADMISSION_DAY_Sat', 'WARD_TYPE_S',
  'SEVERITY_OF_ILLNESS_Minor'}`
+## Model Building - AWS Sagemaker
+
+Using the **'MODEL_training_data_with_final_features.pkl'** file saved during feature selection,
+
+
 
 ## Retraining pipeline
 ![retraining pipeline](Images/retraining.png)
