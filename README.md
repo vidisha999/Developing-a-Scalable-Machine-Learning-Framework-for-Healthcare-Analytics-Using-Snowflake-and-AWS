@@ -20,10 +20,15 @@ As shown in the reference architecture,
  4. Build end to end retraining pipeline for checking model drift and data drift and redeploy the model.
 
 ## Data 
-The training data loaded in snowflake are collected from 230k patients across various regions and hospitals. There are total 19 features available in the data.
-The simulation data is available for 71K patients for prediction purpose.
+The training data loaded in snowflake are collected from 230k patients across various regions and hospitals. There are total 19 features available in the [training dataset](Data/health_data.csv). The [simulation dataset for scoring process](Data/simulation_data.csv) has data collected from 71K patients.
 
-##
+## Exploratory Data Analysis - Snowflake Database 
+In order to store the datasts, a snowflake data table( **HEALTH_DB**) created in a new database and schema **HEALTHDB.HEALTH_SCHEMA** in snowflake. A univariate analysis was performed on each feature to understand the distribution of data and outliers within a single variable. Then the variablity of patient's length of stay(LOS) with the type and demographics of the hospital and facility, the age of patients, type of admission, severity of illness were analyzed in order to understand the average LOS patients. The following are the major insights derrived from the [EDA](SQL_Queries/Snowflake-EDA.sql).
+
+ - Patients admitted to surgery department located in hospital_region_code 'Z' has the highest average LOS, which is 40 days , whereas those in the Anesthesia department in hospital_region_code 'X' had the shortest average LOS, at just 31 days.
+ - There was no consistent trend observed between the LOS of patients with the available extra rooms in the hospital, however the highets average LOS of patients recorded as 60 days was for the highest number of available extra rooms  which is 20 in total.
+ - Patients who were admitted due to Trauma or extreme severity ilness had the highest average LOS, while those admitted for minor severity illnesses or through emergency admissions had the lowest average LOS.
+ - There was no significant variation in the average LOS across different age groups; however, the oldest patients recorded the highest average LOS at 37 days.
 -------
 ## Retraining pipeline
 ![retraining pipeline](Images/retraining.png)
