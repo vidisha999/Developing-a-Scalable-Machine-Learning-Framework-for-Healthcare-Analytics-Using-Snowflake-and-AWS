@@ -144,6 +144,10 @@ The **[MODEL_training_data_with_final_features.pkl](model_building_retraining_ar
 
 Since XGB Regressor resulted the minimum values for rmse and mae, the XGB Regressor is selected as the appropriate model in this project to gain higher accuracy and credibility in the model predictions. Then its booster is saved as the [Trained Model](model_building_retraining_artifacts/MODEL_XGB.model). The values obtained for rmse and mae were insesrted into a new dictionary and saved as the [XGB model performance metrics](model_building_retraining_artifacts/MODEL_XGB_PERFM_METRICS.pkl) pickle file.
 
+## Scoring Process 
+The scoring process involves storing model predictions in a dedicated table within the Snowflake database. This logged data allows for efficient retrieval, enabling analysis of model performance over time. By tracking predictions, users can evaluate accuracy, detect patterns, and refine the model based on insights derived from historical results, ultimately improving its effectiveness. 
+
+
 ## Retraining pipeline
 ![retraining pipeline](Images/retraining.png)
 ## Steps in the retraining pipeline 
