@@ -134,7 +134,13 @@ Since most features had small values for the feature impotance, a union of featu
  'SEVERITY_OF_ILLNESS_Minor'}`
 ## Model Building - AWS Sagemaker
 
-Using the **'MODEL_training_data_with_final_features.pkl'** file saved during feature selection,
+The **[MODEL_training_data_with_final_features.pkl](model_building_retraining_artifacts/MODEL_training_data_with_final_features.pkl)** file saved during feature selection is used to create training and testing splits of X and Y data and those data are used to calculate the *rmse(root mean squared erorr)* and *mae(mean absolute error)* from three types of regression models; linear regression, randomforestregression and xgbregression. The following table shows the results obtained from each model.
+
+|Model|R2 score|RMSE|MAE|
+|--|--|--|--|
+|Linear Regression|0.183|15.21|3.37|
+|Random Forest Regression|0.899|14.25|3.25|
+|XGB Regression|0.396|13.58|3.17|
 
 
 
