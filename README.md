@@ -55,6 +55,43 @@ Insights gained from the EDA, domain knowledge and data transformation technique
 
 SELECT * FROM BASE_WITH_FEATURES;  
 ```
+## Preprocessing - AWS Sagemaker Notebook Instance 
+The preprocessing steps were conducted in a Python notebook instance within AWS SageMaker, utilizing feature-engineered data queried from the Snowflake database via the Snowflake-Python connector. The Python notebook is utilized for its seamless data exploration, interactive and iterative development, and extensive support for Python libraries and extensions, facilitating efficient data analysis and model building.
+
+ - Create a SQL engine in python
+   ```python
+   import sqlalchemy
+   from sqlalchemy import create_engine
+   engine= create_engine(URL( account="..",
+        user= snowflake_creds.USER_NAME,
+        password= snowflake_creds.PASSWORD,
+        role="ACCOUNTADMIN",
+        warehouse="COMPUTE_WH",
+        database="HEALTHDB",
+        schema="HEALTHSCHEMA"
+    )) ```
+
+  - Create a snowflake-python connector to query data from Snowflake
+    ```python
+       with engine.connect() as conn:
+          df=pd.DataFrame(pd.read_sql(text(query),conn))
+    ```
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
