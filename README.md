@@ -600,8 +600,13 @@ if data_drift==True or model_drift==True:
     deploy_model(select_model)
 ```
 
+## Conclusion 
 
+This project successfully demonstrates a comprehensive data pipeline for healthcare analytics, leveraging Snowflake for data storage and AWS SageMaker for model development. By predicting patients’ length of stay (LOS) at hospital admission, the model provides valuable insights that empower healthcare providers to optimize resource allocation, reduce unexpected costs, and enhance patient care.
 
+Through real-time data scoring, predictions are logged in a dedicated table, allowing continuous evaluation of model performance. This logging mechanism supports model refinement and retraining, ensuring improvements in predictive accuracy over time. The integration of scheduled execution, SMTP email notifications, and automated model drift and data drift detection establishes a robust pipeline for monitoring, updating, and redeploying the predictive model as new data emerges.
+
+Ultimately, this project showcases an end-to-end machine learning framework that bridges data engineering, predictive modeling, and healthcare optimization, making strides toward data-driven decision-making in medical institutions.
 
 
 
