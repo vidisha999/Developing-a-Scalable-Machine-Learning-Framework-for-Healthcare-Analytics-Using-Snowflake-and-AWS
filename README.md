@@ -167,7 +167,7 @@ The scoring process involves storing model predictions in a dedicated table with
                  test[col]=0
        return test
   ```
-  - The **preprocess_data(df)** function from [LOS_Preprocessing](preprocessing_pipeline/LOS_Preprocessing.py) script is used to preprocess the input data.After preprocessing, the [list of final model features](model_building_retraining_artifacts/MODEL_FEATS.pkl) selected during training process is loaded and passed to the **check_n_create_model_features(df, feat_list)** to generate final cleaned and feature aligned dataframe.
+- The **preprocess_data(df)** function from [LOS_Preprocessing](preprocessing_pipeline/LOS_Preprocessing.py) script is used to preprocess the input data.After preprocessing, the [list of final model features](model_building_retraining_artifacts/MODEL_FEATS.pkl) selected during training process is loaded and passed to the **check_n_create_model_features(df, feat_list)** to generate final cleaned and feature aligned dataframe.
 
 
 
