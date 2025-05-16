@@ -79,7 +79,7 @@ The preprocessing steps were conducted in a Python notebook instance within AWS 
           df.columns=[col.upper() for col in df.columns.tolist()] # convert all column names to uppercase
     ```
 
-The preprocessing steps were saved in **preprocess_data(df)** function within [LOS_Preprocessing](Python_notebook/LOS_Preprocessing.py) script to reuse the same steps during the scoring process and model retraining process.This minimizes data inconsistencies when querying incoming data, helping to maintain reliable and accurate model results. Following steps were performed in preprocessing. 
+The preprocessing steps were saved in **preprocess_data(df)** function within [LOS_Preprocessing](preprocessing_pipeline/LOS_Preprocessing.py) script to reuse the same steps during the scoring process and model retraining process.This minimizes data inconsistencies when querying incoming data, helping to maintain reliable and accurate model results. Following steps were performed in preprocessing. 
 
 - Dropping unwanted columns and reset the index
   ```python
