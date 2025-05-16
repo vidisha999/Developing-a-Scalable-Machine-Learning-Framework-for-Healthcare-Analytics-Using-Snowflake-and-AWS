@@ -153,7 +153,7 @@ The scoring process involves storing model predictions in a dedicated table with
 5. Automated execution by scheduling recurrence runs to ensure continuous update to the logging table.
 6. Send status email at each step to admin users using SMTP.
 ### 1. Retrieval of the scoring data
- - A SQL query which uses two CTEs as explained in the[Feature Selection - AWS Sagemaker](#feature-selection---aws-sagemaker) is used to query the data from the [simulation dataset](Data/simulation_data.csv), which is stored in **HEALTHDB.HEALTHSCHEMA.SIMULATION_DATA** snowflake table.
+ - A SQL query which uses two CTEs as explained in the [Feature Engineering - Snowflake Database](#Feature-Engineering---Snowflake-Database)is used to query the data from the [simulation dataset](Data/simulation_data.csv), which is stored in **HEALTHDB.HEALTHSCHEMA.SIMULATION_DATA** snowflake table.
 
 
 
