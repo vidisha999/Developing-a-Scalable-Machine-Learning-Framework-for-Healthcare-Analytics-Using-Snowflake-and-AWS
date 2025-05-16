@@ -155,6 +155,7 @@ The scoring process involves storing model predictions in a dedicated table with
 ### 1. Retrieval of the scoring data
  - A SQL query utilizing two CTEs, as outlined in the [Feature Engineering - Snowflake Database](#Feature-Engineering---Snowflake-Database) is used to retrieve  [simulation dataset](Data/simulation_data.csv), which is stored in **HEALTHDB.HEALTHSCHEMA.SIMULATION_DATA** snowflake table.
  - The retrieved data is loaded into the Python notebook instance in AWS SageMaker using the Snowflake-Python connector and then transformed into a DataFrame for further processing.
+ - After loading the scoring data, it is best practice to print the most recent data retrieval date to track the scoring process. This can be done by retrieving the maximum value from the **ADMISSION_DATE** column.
 ### 2. Applying preprocessing and Feature selection
 - To ensure that incoming new data aligns with the features used during model training, the **check_n_create_model_features(df, feat_list)** function is designed to validate the presence of expected columns and automatically add any missing ones with zero values.
   ```python
@@ -168,8 +169,77 @@ The scoring process involves storing model predictions in a dedicated table with
        return test
   ```
 - The **preprocess_data(df)** function from [LOS_Preprocessing](preprocessing_pipeline/LOS_Preprocessing.py) script is used to preprocess the input data.After preprocessing, the [list of final model features](model_building_retraining_artifacts/MODEL_FEATS.pkl) selected during training process is loaded and passed to the **check_n_create_model_features(df, feat_list)** to generate final cleaned and feature aligned dataframe.
+### 3. Model Ineference to generate predictions
+
+- The [trained model](model_building_retraining_artifacts/MODEL_XGB.model) is used to get the predictions from preprocessed data and predicted LOS is added as a new columns to the dataframe.
+``` python
+model=xgboost.xgbRegressor()
+model.load_model(''MODEL_XGB.model')
+score_data_final['predicted_LOS']=model.predict(score_data_final.drop['LOS'],axis=1)
+```
+### 4. Insert predictions to logging table 
+
+- The **insert_predictions_to_snowflake_table(data)** function is use to import the dataframe with predictions to a logging table created in the snowflake.
+  ```python
+  def insert_predictions_to_snowflake_table(data):
+     import snowflake.connector
+     from snowflake.connector.pandas_tools import pd_writer,write_pandas
+     from sqlalchemy import create_engine
+
+     engine=create_engine((URL( account="..",
+        user= snowflake_creds.USER_NAME,
+        password= snowflake_creds.PASSWORD,
+        role="ACCOUNTADMIN",
+        warehouse="COMPUTE_WH",
+        database="HEALTHDB",
+        schema="HEALTHSCHEMA")
+    table='TEMP_LOS_PREDICTION_MODEL_LOGGING_TABLE' # If table is not already exist in snowflake
+     # inserting data to snowflake logging table
+    data.to_sql(table,engine,index=False, if_exists='append', method=pd_writer) # SQL alchemy will automatically create the table in snowflake by infering the table's column names and datatypes from the dataframe.
+   return ("success")
+  ```
+- Merge the final scoring dataframe which contains 'predicted LOS' and originally loaded scoring dataframeto ensure data consistency and prevent any missing values. Then the **insert_predictions_to_snowflake_table(data)** is applied to the merged dataframe. It would return if the predictions were succesffuly inserted to the logging table.
+  ```python
+  score_data_final = score_data_final.reset_index()
+  score_data_table = pd.merge(score_data,score_data_final,on='CASE_ID',how='left')
+  status = insert_predictions_to_snowflake_table(score_data_table)
+  ```
+The all above steps are combined to a single scoring function called **LOS_MODEL_DEPLOYMENT()** as shown in the [scoring script](preprocessing_pipeline/Scoring_Script_vidisha.ipynb)
+### 5. Automated execution by scheduling the Notebook
+
+```python
+import time
+from datetime import datetime
+import pytz
+tz_NY=pytz.timezone('America/New_York')
+
+hours =[12:00] # Schedule everyday noon to execute this notebook
+
+while True :
+
+ time_now=datetime.now(tz_NY) # get the current datetime
+ hour = str(time_now.hour)
+ minute = str(time_now.minute)
+ current_time= f" {hour}:{minute}"
+
+# check if the current time is the scheduled time
+if time_now in hours:
+   LOS_MODEL_DEPLOYMENT() # The function created to execute scoring process
+
+time.sleep(60) # wait a minute before re-executes.
+```    
 
 
+
+
+
+
+
+
+
+
+
+  
 
 
 ## Retraining pipeline
