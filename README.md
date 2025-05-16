@@ -145,7 +145,7 @@ The **[MODEL_training_data_with_final_features.pkl](model_building_retraining_ar
 Since XGB Regressor resulted the minimum values for rmse and mae, the XGB Regressor is selected as the appropriate model in this project to gain higher accuracy and credibility in the model predictions. Then its booster is saved as the [Trained Model](model_building_retraining_artifacts/MODEL_XGB.model). The values obtained for rmse and mae were insesrted into a new dictionary and saved as the [XGB model performance metrics](model_building_retraining_artifacts/MODEL_XGB_PERFM_METRICS.pkl) pickle file.
 
 ## Scoring Process 
-The scoring process involves storing model predictions in a dedicated table within the Snowflake database. This logged data allows for efficient retrieval, enabling analysis of model performance over time. By tracking predictions, users can evaluate accuracy, detect patterns, and refine the model based on insights derived from historical results, ultimately improving its effectiveness. The scheduled scoring function for deployment includes several key steps.
+The scoring process involves storing model predictions in a dedicated table within the Snowflake database. This logged data allows for efficient retrieval, enabling analysis of model performance over time. By tracking predictions, users can evaluate accuracy, detect patterns, and refine the model based on insights derived from historical results, ultimately improving its effectiveness. The scheduled [scoring function](preprocessing_pipeline/Scoring_Script_vidisha.ipynb) for deployment includes several key steps.
 1. Retrieval of scoring data from snowflake database.
 2. Applying preprocessing steps and prepare the data for model predictions.
 3. Model inference by applying the trained model to get predictions.
@@ -153,9 +153,21 @@ The scoring process involves storing model predictions in a dedicated table with
 5. Automated execution by scheduling recurrence runs to ensure continuous update to the logging table.
 6. Send status email at each step to admin users using SMTP.
 ### 1. Retrieval of the scoring data
- - A SQL query which uses two CTEs as explained in the [Feature Engineering - Snowflake Database](#Feature-Engineering---Snowflake-Database)is used to query the data from the [simulation dataset](Data/simulation_data.csv), which is stored in **HEALTHDB.HEALTHSCHEMA.SIMULATION_DATA** snowflake table.
-
-
+ - A SQL query utilizing two CTEs, as outlined in the [Feature Engineering - Snowflake Database](#Feature-Engineering---Snowflake-Database) is used to retrieve  [simulation dataset](Data/simulation_data.csv), which is stored in **HEALTHDB.HEALTHSCHEMA.SIMULATION_DATA** snowflake table.
+ - The retrieved data is loaded into the Python notebook instance in AWS SageMaker using the Snowflake-Python connector and then transformed into a DataFrame for further processing.
+### 2. Applying preprocessing and Feature selection
+- To ensure that incoming new data aligns with the features used during model training, the **check_n_create_model_features(df, feat_list)** function is designed to validate the presence of expected columns and automatically add any missing ones with zero values.
+  ```python
+  def check_n_create_model_features(df,feat_list):
+      test=pd.DataFrame()
+      for col in feat_list:
+           if col in df.columns.tolist():
+                test[col]=df[col]
+           else:
+                 test[col]=0
+       return test
+  ```
+  - The **preprocess_data(df)** function from [LOS_Preprocessing](preprocessing_pipeline/LOS_Preprocessing.py) script is used to preprocess the input data.After preprocessing, the [list of final model features](model_building_retraining_artifacts/MODEL_FEATS.pkl) selected during training process is loaded and passed to the **check_n_create_model_features(df, feat_list)** to generate final cleaned and feature aligned dataframe.
 
 
 
