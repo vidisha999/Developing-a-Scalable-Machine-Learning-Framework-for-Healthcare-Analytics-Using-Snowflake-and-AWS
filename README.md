@@ -151,7 +151,14 @@ The scoring process involves storing model predictions in a dedicated table with
 3. Model inference by applying the trained model to get predictions.
 4. Inserting the predictios to the logging table created in the snowflake for tracking and analysis.
 5. Automated execution by scheduling recurrence runs to ensure continuous update to the logging table.
-6. Send status email at each step to admin users using SMTP method.
+6. Send status email at each step to admin users using SMTP.
+### 1. Retrieval of the scoring data
+ - A SQL query which uses two CTEs as explained in the[Feature Selection - AWS Sagemaker](#feature-selection---aws-sagemaker) is used to query the data from the [simulation dataset](Data/simulation_data.csv), which is stored in **HEALTHDB.HEALTHSCHEMA.SIMULATION_DATA** snowflake table.
+
+
+
+
+
 
 ## Retraining pipeline
 ![retraining pipeline](Images/retraining.png)
