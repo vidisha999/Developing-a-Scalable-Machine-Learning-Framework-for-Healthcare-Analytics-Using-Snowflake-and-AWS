@@ -228,17 +228,29 @@ if time_now in hours:
 
 time.sleep(60) # wait a minute before re-executes.
 ```    
+### 6. Live simulation of Scoring Data
+To simulate how the scoring process would occur, a contsant value 'a' represeting the date was passed to scoring query and LOS_MODEL_DEPLOYMET functions, while the current time was included in the list of scheduled hours.
+```python
+def scoring_query(a):
+    query_sim = f"""
+           WITH BASE AS (
+               SEELECT CASE_ID,...,...,.. # select all columns
+               FROM HEALTHDB.HEALTHSCHEMA.SIMULATION_DATA),
+           WITH BASE_WITH FEATURES AS (
+               SELECT *,...,.... # feature selection
+               FROM BASE)
+           SELECT * FROM BASE_WITH_FEATURES WHERE ADMISSION_DATE = CURRENT_DATE+{a}-870
+    """
+    return query_sim
+```
 
+- The **LOS_MODEL_DEPLOYMENT_SIM(a)** function is used to simulate the live scoring in a loop for a range of values.
 
+### 7. Send status mail
 
+The **send_status_mail** function in [scoring script](preprocessing_pipeline/Scoring_Script_vidisha.ipynb) constructs and sends a status message at each step of the scoring process via Gmail's SMTP server, using secure authentication with Gmail’s app password to ensure safe and reliable delivery of updates.
 
-
-
-
-
-
-
-
+-------
   
 
 
